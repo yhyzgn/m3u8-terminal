@@ -81,7 +81,6 @@ func main() {
 
 	// ffmpeg -i "concat:file001.ts|file002.ts|file003.ts|file004.ts......n.ts" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
 	concat := "concat:" + strings.Join(tsNames, "|")
-	fmt.Println(concat)
 	cmdArgs := []string{"-i", concat, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", path.Join(saveDir, filename+".mp4")}
 
 	cmd := exec.Command("./script/ffmpeg", cmdArgs...)
