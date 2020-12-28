@@ -1,0 +1,247 @@
+package m3u8
+
+import (
+	"bytes"
+	"io"
+	"time"
+)
+
+// This file defines the data structures related to the package.
+
+const (
+	// refs: Protocol version compatibility in section 7
+	minver = uint8(3)
+	// DATETIME time format
+	DATETIME = time.RFC3339Nano // Format for EXT-X-PROGRAM-DATE-TIME
+)
+
+// ListType list type
+type ListType uint
+
+const (
+	// use 0 for undefined types
+
+	// MASTER type
+	MASTER ListType = iota + 1
+	// MEDIA type
+	MEDIA
+)
+
+// MediaType for EXT-X-PLAYLIST-TYPE tag
+type MediaType uint
+
+const (
+	// use 0 for undefined types
+
+	// EVENT type
+	EVENT MediaType = iota + 1
+	// VOD type
+	VOD
+)
+
+// MediaPlaylist This structure represents a single bitrate playlist aka media playlist.
+// It is related to both a simple media playlist and a sliding window media playlist.
+// URI lines in the Playlist point to media segments.
+//
+// Simple Media Playlist file sample:
+//
+//   #EXTM3U
+//   #EXT-X-VERSION:3
+//   #EXT-X-TARGETDURATION:5220
+//   #EXTINF:5219.2,
+//   http://media.example.com/entire.ts
+//   #EXT-X-ENDLIST
+//
+// Sample of Sliding Window Media Playlist, using HTTPS:
+//
+//   #EXTM3U
+//   #EXT-X-VERSION:3
+//   #EXT-X-TARGETDURATION:8
+//   #EXT-X-MEDIA-SEQUENCE:2680
+//
+//   #EXTINF:7.975,
+//   https://priv.example.com/fileSequence2680.ts
+//   #EXTINF:7.941,
+//   https://priv.example.com/fileSequence2681.ts
+//   #EXTINF:7.975,
+//   https://priv.example.com/fileSequence2682.ts
+type MediaPlaylist struct {
+	Segments       []*MediaSegment
+	MediaType      MediaType
+	buf            bytes.Buffer
+	Key            *Key   // EXT-X-KEY is optional encryption key displayed before any segments (default key for the playlist)
+	Map            *Map   // EXT-X-MAP is optional tag specifies how to obtain the Media Initialization Section (default map for the playlist)
+	WV             *WV    // Widevine related tags outside of M3U8 specs
+	Args           string // optional arguments placed after URIs (URI?Args)
+	TargetDuration float64
+	Winsize        uint   // max number of segments displayed in an encoded playlist; need set to zero for VOD playlists
+	capacity       uint   // total capacity of slice used for the playlist
+	head           uint   // head of FIFO, we add segments to head
+	tail           uint   // tail of FIFO, we remove segments from tail
+	count          uint   // number of segments added to the playlist
+	SeqNo          uint64 // EXT-X-MEDIA-SEQUENCE
+	Ver            uint8
+	Iframe         bool // EXT-X-I-FRAMES-ONLY
+	Closed         bool // is this VOD (closed) or Live (sliding) playlist?
+	durationAsInt  bool // output durations as integers of floats?
+}
+
+// MasterPlaylist This structure represents a master playlist which combines media playlists for multiple bitrates.
+// URI lines in the playlist identify media playlists.
+// Sample of Master Playlist file:
+//
+//   #EXTM3U
+//   #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1280000
+//   http://example.com/low.m3u8
+//   #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=2560000
+//   http://example.com/mid.m3u8
+//   #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=7680000
+//   http://example.com/hi.m3u8
+//   #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=65000,CODECS="mp4a.40.5"
+//   http://example.com/audio-only.m3u8
+type MasterPlaylist struct {
+	Variants      []*Variant
+	Args          string // optional arguments placed after URI (URI?Args)
+	CypherVersion string // non-standard tag for Widevine (see also WV struct)
+	buf           bytes.Buffer
+	Ver           uint8
+}
+
+// Variant This structure represents variants for master playlist.
+// Variants included in a master playlist and point to media playlists.
+type Variant struct {
+	URI       string
+	ChunkList *MediaPlaylist
+	VariantParams
+}
+
+// VariantParams This structure represents additional parameters for a variant
+// used in EXT-X-STREAM-INF and EXT-X-I-FRAME-STREAM-INF
+type VariantParams struct {
+	ProgramID    uint32
+	Bandwidth    uint32
+	Codecs       string
+	Resolution   string
+	Audio        string // EXT-X-STREAM-INF only
+	Video        string
+	Subtitles    string         // EXT-X-STREAM-INF only
+	Captions     string         // EXT-X-STREAM-INF only
+	Name         string         // EXT-X-STREAM-INF only (non standard Wowza/JWPlayer extension to name the variant/quality in UA)
+	Iframe       bool           // EXT-X-I-FRAME-STREAM-INF
+	Alternatives []*Alternative // EXT-X-MEDIA
+}
+
+// Alternative This structure represents EXT-X-MEDIA tag in variants.
+type Alternative struct {
+	GroupID         string
+	URI             string
+	Type            string
+	Language        string
+	Name            string
+	Default         bool
+	AutoSelect      string
+	Forced          string
+	Characteristics string
+	Subtitles       string
+}
+
+// MediaSegment This structure represents a media segment included in a media playlist.
+// Media segment may be encrypted.
+// Widevine supports own tags for encryption metadata.
+type MediaSegment struct {
+	SeqID           uint64
+	Title           string // optional second parameter for EXTINF tag
+	URI             string
+	Duration        float64   // first parameter for EXTINF tag; duration must be integers if protocol version is less than 3 but we are always keep them float
+	Limit           int64     // EXT-X-BYTERANGE <n> is length in bytes for the file under URI
+	Offset          int64     // EXT-X-BYTERANGE [@o] is offset from the start of the file under URI
+	Key             *Key      // EXT-X-KEY displayed before the segment and means changing of encryption key (in theory each segment may have own key)
+	Map             *Map      // EXT-X-MAP displayed before the segment
+	Discontinuity   bool      // EXT-X-DISCONTINUITY indicates an encoding discontinuity between the media segment that follows it and the one that preceded it (i.e. file format, number and type of tracks, encoding parameters, encoding sequence, timestamp sequence)
+	SCTE            *SCTE     // EXT-SCTE35 used for Ad signaling in HLS
+	ProgramDateTime time.Time // EXT-X-PROGRAM-DATE-TIME tag associates the first sample of a media segment with an absolute date and/or time
+}
+
+// SCTE SCTE struct
+type SCTE struct {
+	Cue  string
+	ID   string
+	Time float64
+}
+
+// Key This structure represents information about stream encryption.
+//
+// Realizes EXT-X-KEY tag.
+type Key struct {
+	Method            string
+	URI               string
+	IV                string
+	KeyFormat         string
+	KeyFormatVersions string
+}
+
+// Map This structure represents specifies how to obtain the Media
+// Initialization Section required to parse the applicable
+// Media Segments.
+// It applies to every Media Segment that appears after it in the
+// Playlist until the next EXT-X-MAP tag or until the end of the
+// playlist.
+//
+// Realizes EXT-MAP tag.
+type Map struct {
+	URI    string
+	Limit  int64 // <n> is length in bytes for the file under URI
+	Offset int64 // [@o] is offset from the start of the file under URI
+}
+
+// WV This structure represents metadata  for Google Widevine playlists.
+// This format not described in IETF draft but provied by Widevine Live Packager as
+// additional tags with #WV-prefix.
+type WV struct {
+	AudioChannels          uint
+	AudioFormat            uint
+	AudioProfileIDC        uint
+	AudioSampleSize        uint
+	AudioSamplingFrequency uint
+	CypherVersion          string
+	ECM                    string
+	VideoFormat            uint
+	VideoFrameRate         uint
+	VideoLevelIDC          uint
+	VideoProfileIDC        uint
+	VideoResolution        string
+	VideoSAR               string
+}
+
+// Playlist Interface applied to various playlist types.
+type Playlist interface {
+	Encode() *bytes.Buffer
+	Decode(bytes.Buffer, bool) error
+	DecodeFrom(reader io.Reader, strict bool) error
+	String() string
+}
+
+// Internal structure for decoding a line of input stream with a list type detection
+type decodingState struct {
+	listType           ListType
+	m3u                bool
+	tagWV              bool
+	tagStreamInf       bool
+	tagInf             bool
+	tagSCTE35          bool
+	tagRange           bool
+	tagDiscontinuity   bool
+	tagProgramDateTime bool
+	tagKey             bool
+	tagMap             bool
+	programDateTime    time.Time
+	limit              int64
+	offset             int64
+	duration           float64
+	title              string
+	variant            *Variant
+	alternatives       []*Alternative
+	xkey               *Key
+	xmap               *Map
+	scte               *SCTE
+}
