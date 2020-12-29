@@ -7,14 +7,16 @@
 package dl
 
 type Resource struct {
-	index    int
-	URL      string
-	Filename string
+	index     int
+	URL       string
+	Filename  string
+	Overwrite bool
 }
 
-func NewResource(url, filename string) *Resource {
+func NewResource(url, filename string, overwrite bool) *Resource {
 	return &Resource{
-		URL:      url,
-		Filename: filename,
+		URL:       url,
+		Filename:  filename,
+		Overwrite: overwrite,
 	}
 }

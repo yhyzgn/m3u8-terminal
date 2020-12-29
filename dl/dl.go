@@ -12,6 +12,7 @@ import (
 	"github.com/vbauerster/mpb/v5/decor"
 	"github.com/yhyzgn/golus"
 	"io"
+	"m3u8/file"
 	"net/http"
 	"os"
 	"path"
@@ -50,7 +51,7 @@ func New(dir string) *Downloader {
 }
 
 func (dl *Downloader) AppendResource(url, filename string) *Downloader {
-	dl.resources = append(dl.resources, NewResource(url, filename))
+	dl.resources = append(dl.resources, NewResource(url, filename, true))
 	return dl
 }
 
@@ -95,6 +96,14 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 	defer dl.wg.Done()
 	dl.pool <- resource
 	finalPath := path.Join(dl.dir, resource.Filename)
+
+	// 如果不覆盖下载，文件存在时则无需下载
+	if file.Exists(finalPath) && !resource.Overwrite {
+		// 也表示完成一个任务
+		dl.finished <- <-dl.pool
+		return
+	}
+
 	tempPath := finalPath + ".tmp"
 
 	// 创建一个临时文件

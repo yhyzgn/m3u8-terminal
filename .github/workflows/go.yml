@@ -18,7 +18,7 @@ jobs:
     steps:
     - name: Current date
       id: date
-      run: echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
+      run: echo "date=$(TZ=UTC-8 date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
         
     - name: Set up Go 1.15
       uses: actions/setup-go@v2

@@ -68,6 +68,7 @@ func main() {
 	saveDir := conf.SaveDir
 	tsDir := path.Join(saveDir, conf.TsTempDirPrefix+filename)
 	mediaFile := filename + "." + fileExt
+
 	mediaPath := path.Join(saveDir, mediaFile)
 
 	if should := shouldDownload(mediaPath); !should {
@@ -76,11 +77,11 @@ func main() {
 	}
 
 	// 下载任务，返回已下载成功的切片列表
-	tsNames := download(urlStr, tsDir, mediaFile)
+	tsFile := download(urlStr, tsDir, mediaFile)
 
 	// 下载完成，开始合并
 	fmt.Println("TS files download finished, now merging...")
 
 	// 合并切片，并转换视频格式
-	merge(tsDir, mediaPath, mediaFile, tsNames)
+	merge(tsDir, mediaPath, mediaFile, tsFile)
 }

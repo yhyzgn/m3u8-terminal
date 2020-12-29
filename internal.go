@@ -67,7 +67,7 @@ func ffmpegDownload(url, name string) {
 func shouldDownload(mediaPath string) (should bool) {
 	if file.Exists(mediaPath) {
 		var ch string
-		fmt.Print(golus.NewStylus().SetFontColor(golus.FontYellow).Apply("Media file exist, cover? (y/n) "))
+		fmt.Print(golus.NewStylus().SetFontColor(golus.FontYellow).Apply(fmt.Sprintf("Media file '%s' already exists, Overwrite? (y/n) ", mediaPath)))
 		_, err := fmt.Scan(&ch)
 		if nil != err {
 			ch = "n"
@@ -91,7 +91,7 @@ func shouldDownload(mediaPath string) (should bool) {
 }
 
 // 下载 m3u8 资源
-func download(urlStr, tsDir, mediaFile string) (tsNames []string) {
+func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 	_, mediaList, err := list.GetPlayList(urlStr)
 	if nil != err {
 		fmt.Println(err)
@@ -120,17 +120,20 @@ func download(urlStr, tsDir, mediaFile string) (tsNames []string) {
 	downloader := dl.New(tsDir).ShowProgressBar(false)
 
 	keyMap := make(map[string][]byte)
-	tsNames = make([]string, 0)
+	tsNames := make([]string, 0)
 	for i, seg := range mediaList.Segments {
 		if nil != seg {
 			if nil != seg.Key && seg.Key.URI != "" && nil == keyMap[seg.Key.Method+"-"+seg.Key.URI] {
 				keyMap[seg.Key.Method+"-"+seg.Key.URI], _ = http.Get(seg.Key.URI)
 			}
 			name := fmt.Sprintf("slice_%06d.ts", i+1)
-			tsNames = append(tsNames, path.Join(tsDir, name))
-			downloader.AppendResource(seg.URI, name)
+			tsNames = append(tsNames, "file " + name)
+			downloader.Append(dl.NewResource(seg.URI, name, false))
 		}
 	}
+
+	tsFile = path.Join(tsDir, "slice.lst")
+	_ = file.WriteString(tsFile, strings.Join(tsNames, "\n"))
 
 	// 更新进度条
 	go func() {
@@ -155,10 +158,9 @@ func download(urlStr, tsDir, mediaFile string) (tsNames []string) {
 }
 
 // 合并切片，并转换视频格式
-func merge(tsDir, mediaPath, mediaFile string, tsNames []string) {
-	// ffmpeg -i "concat:file001.ts|file002.ts|file003.ts|file004.ts......n.ts" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
-	concat := "concat:" + strings.Join(tsNames, "|")
-	cmdArgs := []string{"-i", concat, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
+func merge(tsDir, mediaPath, mediaFile string, tsFile string) {
+	// ffmpeg -i "xxx.txt" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
+	cmdArgs := []string{"-y", "-f", "concat", "-i", tsFile, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
 
 	cmd := exec.Command(ffmpeg, cmdArgs...)
 	cmd.Stdout = os.Stdout
