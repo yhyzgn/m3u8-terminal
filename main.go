@@ -11,142 +11,76 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
-	"github.com/yhyzgn/golus"
-	"io"
 	"io/ioutil"
-	"m3u8/crypt"
-	"m3u8/dl"
-	"m3u8/file"
-	"m3u8/http"
-	"m3u8/list"
-	"os"
-	"os/exec"
+	"m3u8/settings"
 	"path"
-	"strings"
-	"time"
 )
 
+var (
+	conf           settings.Config
+	supportedMedia = map[string]bool{
+		"mp4": true,
+		"mkv": true,
+		"avi": true,
+	}
+	url  = flag.String("url", "", "URL of m3u8 resource")
+	name = flag.String("name", "", "Name of media")
+	ext  = flag.String("ext", "", "Extension of media")
+)
+
+func init() {
+	bs, err := ioutil.ReadFile("./settings.json")
+	if nil != err {
+		panic(err)
+	}
+	if err = json.Unmarshal(bs, &conf); nil != err {
+		panic(err)
+	}
+}
+
 func main() {
-	urlStr := "http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8"
-	saveDir := "./down"
-	filename := "测试"
-	tsDir := path.Join(saveDir, "ts_"+filename)
-	ext := "mp4"
-	mediaFile := filename+"."+ext
+	flag.Parse()
+
+	// 控制台参数
+	urlStr := *url
+	filename := *name
+	fileExt := *ext
+
+	if "" == urlStr {
+		panic("URL of m3u8 resource can not be empty.")
+	}
+	if "" == filename {
+		panic("Name of media can not be empty.")
+	}
+	if "" == fileExt {
+		panic("Extension of media can not be empty.")
+	}
+	if !supportedMedia[fileExt] {
+		panic("Unsupported extension of media: " + fileExt)
+	}
+
+	// 检查 ffmpeg
+	checkFfmpeg()
+
+	saveDir := conf.SaveDir
+	tsDir := path.Join(saveDir, conf.TsTempDirPrefix+filename)
+	mediaFile := filename + "." + fileExt
 	mediaPath := path.Join(saveDir, mediaFile)
 
-	_, mediaList, err := list.GetPlayList(urlStr)
-	if nil != err {
-		fmt.Println(err)
+	if should := shouldDownload(mediaPath); !should {
+		fmt.Println(fmt.Sprintf("Mabey the media %s Exists", colorful(mediaFile)))
 		return
 	}
-	if nil == mediaList {
-		fmt.Println("No any media source found.")
-	}
 
-	progress := mpb.New(
-		mpb.WithWidth(100),
-		mpb.WithRefreshRate(time.Second),
-	)
-	bar := progress.AddBar(int64(len(mediaList.Segments)),
-		mpb.BarFillerClearOnComplete(),
-		mpb.PrependDecorators(
-			decor.Name("Task -- "),
-			decor.Name(mediaFile, decor.WC{W: len(mediaFile) + 1, C: decor.DidentRight}),
-			decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
-		),
-		mpb.AppendDecorators(
-			decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  "+colorful("Download Finished")),
-		),
-	)
-
-	downloader := dl.New(tsDir).ShowProgressBar(false)
-
-	keyMap := make(map[string][]byte)
-	tsNames := make([]string, 0)
-	for i, seg := range mediaList.Segments {
-		if nil != seg {
-			if nil != seg.Key && seg.Key.URI != "" && nil == keyMap[seg.Key.Method+"-"+seg.Key.URI] {
-				keyMap[seg.Key.Method+"-"+seg.Key.URI], _ = http.Get(seg.Key.URI)
-			}
-			name := fmt.Sprintf("slice_%.6d.ts", i+1)
-			tsNames = append(tsNames, path.Join(tsDir, name))
-			downloader.AppendResource(seg.URI, name)
-		}
-	}
-
-	// 更新进度条
-	go func() {
-		for {
-			<-downloader.Finished()
-			bar.Increment()
-		}
-	}()
-
-	go downloader.StartWithReader(func(resourceIndex int, reader io.ReadCloser) io.Reader {
-		key := mediaList.Segments[resourceIndex].Key
-		if nil == key {
-			return reader
-		}
-		data, _ := ioutil.ReadAll(reader)
-		data, _ = crypt.AES128Decrypt(data, keyMap[key.Method+"-"+key.URI], []byte(key.IV))
-		return bytes.NewReader(data)
-	})
-	// 等待任务完成
-	progress.Wait()
+	// 下载任务，返回已下载成功的切片列表
+	tsNames := download(urlStr, tsDir, mediaFile)
 
 	// 下载完成，开始合并
 	fmt.Println("TS files download finished, now merging...")
 
-	if file.Exists(mediaPath) {
-		var ch string
-		fmt.Print(golus.NewStylus().SetFontColor(golus.FontYellow).Apply("Media file exist, cover? (y/n) "))
-		_, err = fmt.Scan(&ch)
-		if nil != err {
-			fmt.Println(err)
-			return
-		}
-
-		if ch == "n" {
-			err = os.RemoveAll(tsDir)
-			if nil != err {
-				fmt.Println(err)
-			} else {
-				fmt.Println(fmt.Sprintf("%s Media Exist", colorful(filename)))
-			}
-			return
-		}
-
-		// 删除已存在文件
-		err = os.Remove(mediaPath)
-		if nil != err {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println("Merging...")
-	}
-
-	// ffmpeg -i "concat:file001.ts|file002.ts|file003.ts|file004.ts......n.ts" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
-	concat := "concat:" + strings.Join(tsNames, "|")
-	cmdArgs := []string{"-i", concat, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
-
-	cmd := exec.Command("ffmpeg", cmdArgs...)
-	cmd.Stdout = os.Stdout
-	if err = cmd.Run(); nil == err {
-		// 合并完成，删除ts目录
-		err = os.RemoveAll(tsDir)
-		if nil != err {
-			fmt.Println(err)
-		} else {
-			fmt.Println(fmt.Sprintf("%s Media %s", colorful(mediaFile), colorful("Merge Finished")))
-		}
-	}
-}
-
-func colorful(msg string) string {
-	return fmt.Sprintf("\x1b[32;1;4m%s\x1b[0m", msg)
+	// 合并切片，并转换视频格式
+	merge(tsDir, mediaPath, mediaFile, tsNames)
 }

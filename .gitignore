@@ -17,4 +17,6 @@
 # vendor/
 
 .idea/
-down/
+
+*.tmp
+Download/
