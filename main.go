@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/yhyzgn/golus"
 	"io"
 	"io/ioutil"
 	"m3u8/crypt"
@@ -30,11 +31,13 @@ import (
 )
 
 func main() {
-	urlStr := "http://devimages.apple.com/iphone/samples/bipbop/gear1/prog_index.m3u8"
+	urlStr := "http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8"
 	saveDir := "./down"
 	filename := "测试"
 	tsDir := path.Join(saveDir, "ts_"+filename)
-	mediaFile := path.Join(saveDir, filename+".mp4")
+	ext := "mp4"
+	mediaFile := filename+"."+ext
+	mediaPath := path.Join(saveDir, mediaFile)
 
 	_, mediaList, err := list.GetPlayList(urlStr)
 	if nil != err {
@@ -52,7 +55,8 @@ func main() {
 	bar := progress.AddBar(int64(len(mediaList.Segments)),
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(
-			decor.Name(filename, decor.WC{W: len(filename) + 1, C: decor.DidentRight}),
+			decor.Name("Task -- "),
+			decor.Name(mediaFile, decor.WC{W: len(mediaFile) + 1, C: decor.DidentRight}),
 			decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
 		),
 		mpb.AppendDecorators(
@@ -98,9 +102,9 @@ func main() {
 	// 下载完成，开始合并
 	fmt.Println("TS files download finished, now merging...")
 
-	if file.Exists(mediaFile) {
+	if file.Exists(mediaPath) {
 		var ch string
-		fmt.Print("Media file exist, cover? (y/n) ")
+		fmt.Print(golus.NewStylus().SetFontColor(golus.FontYellow).Apply("Media file exist, cover? (y/n) "))
 		_, err = fmt.Scan(&ch)
 		if nil != err {
 			fmt.Println(err)
@@ -118,7 +122,7 @@ func main() {
 		}
 
 		// 删除已存在文件
-		err = os.Remove(mediaFile)
+		err = os.Remove(mediaPath)
 		if nil != err {
 			fmt.Println(err)
 			return
@@ -128,7 +132,7 @@ func main() {
 
 	// ffmpeg -i "concat:file001.ts|file002.ts|file003.ts|file004.ts......n.ts" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
 	concat := "concat:" + strings.Join(tsNames, "|")
-	cmdArgs := []string{"-i", concat, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaFile}
+	cmdArgs := []string{"-i", concat, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
 
 	cmd := exec.Command("ffmpeg", cmdArgs...)
 	cmd.Stdout = os.Stdout
@@ -138,7 +142,7 @@ func main() {
 		if nil != err {
 			fmt.Println(err)
 		} else {
-			fmt.Println(fmt.Sprintf("%s Media %s", colorful(filename), colorful("Merge Finished")))
+			fmt.Println(fmt.Sprintf("%s Media %s", colorful(mediaFile), colorful("Merge Finished")))
 		}
 	}
 }

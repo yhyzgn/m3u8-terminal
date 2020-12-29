@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/yhyzgn/golus"
 	"m3u8/http"
 	"m3u8/m3u8"
 	"net/url"
@@ -92,13 +93,13 @@ func completeURI(siteURI, resourceURI string) string {
 
 func chooseStream(mediaList *m3u8.MasterPlaylist) (vnt *m3u8.Variant, err error) {
 	var sb strings.Builder
-	sb.WriteString("Please choose program: \n")
+	sb.WriteString("Please select program: \n")
 	for i, vnt := range mediaList.Variants {
 		sb.WriteString(fmt.Sprintf("\t%d. BandWidth: %d, Resolution: %s\n", i+1, vnt.Bandwidth, vnt.Resolution))
 	}
-	sb.WriteString("Input the No. you want: ")
+	sb.WriteString("Select the number you wanna: ")
 	var index int
-	fmt.Print(sb.String())
+	fmt.Print(golus.NewStylus().SetFontColor(golus.FontBlueGreen).Apply(sb.String()))
 	_, err = fmt.Scan(&index)
 	if nil != err {
 		return
@@ -108,6 +109,6 @@ func chooseStream(mediaList *m3u8.MasterPlaylist) (vnt *m3u8.Variant, err error)
 		return
 	}
 	vnt = mediaList.Variants[index-1]
-	fmt.Println(fmt.Sprintf("You choice is: BandWidth: %d, Resolution: %s", vnt.Bandwidth, vnt.Resolution))
+	fmt.Println(fmt.Sprintf("Your selection is: BandWidth: %d, Resolution: %s", vnt.Bandwidth, vnt.Resolution))
 	return
 }
