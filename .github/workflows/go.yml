@@ -18,10 +18,10 @@ jobs:
     steps:
     - name: Current date
       id: date
-      run: echo "name=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+      run: echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
         
     - name: Set up Go 1.15
-      run: echo ${{ github }}
+      run: echo ${{ env.date }}
         
         
         
