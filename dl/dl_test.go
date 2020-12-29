@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestNew(t *testing.T) {
