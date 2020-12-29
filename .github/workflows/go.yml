@@ -21,7 +21,7 @@ jobs:
       run: echo "name=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
         
     - name: Set up Go 1.15
-      run: echo ${{ steps.date.outputs.date }}
+      run: echo ${{ github }}
         
         
         
