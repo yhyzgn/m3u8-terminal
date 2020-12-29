@@ -3,16 +3,19 @@ name: Go
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
+    tags: 
+      - 'v*'
 
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
+    
     steps:
-
     - name: Set up Go 1.15
       uses: actions/setup-go@v2
       with:
@@ -29,14 +32,65 @@ jobs:
             dep ensure
         fi
 
-    - name: Build
-      run: CGO_ENABLED=0 go build -v -o m3u8
+    - name: Build linux
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o m3u8.linux
 
-    - name: Build-Mac
-      run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -v -o m3u8
+    - name: Build mac
+      run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -v -o m3u8.mac
 
-    - name: Build-Windows
+    - name: Build windows
       run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -v -o m3u8.exe
-         
-    - name: Test
-      run: go test -v ./...
+   
+    - name: Gzip linux
+      run: |
+        mkdir m3u8-linux-amd64
+        cp m3u8.linux m3u8-linux-amd64/m3u8
+        cp settings.json m3u8-linux-amd64/settings.json
+        tar -czvf m3u8-linux-amd64-${{ github.ref }}.tar.gz m3u8-linux-amd64
+        
+    - name: Gzip mac
+      run: |
+        mkdir m3u8-mac-amd64
+        cp m3u8.mac m3u8-mac-amd64/m3u8
+        cp settings.json m3u8-mac-amd64/settings.json
+        tar -czvf m3u8-mac-amd64-${{ github.ref }}.tar.gz m3u8-mac-amd64
+        
+    - name: Gzip windows
+      run: |
+        mkdir m3u8-windows-amd64
+        cp m3u8.exe m3u8-windows-amd64/m3u8.exe
+        cp settings.json m3u8-windows-amd64/settings.json
+        tar -czvf m3u8-windows-amd64-${{ github.ref }}.tar.gz m3u8-windows-amd64
+        
+    - name: Create release
+      id: createRelease
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.ref }}
+        release_name: v${{ github.ref }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload release asset
+      id: uploadReleaseAsset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.createRelease.outputs.upload_url }}
+        file: m3u8-*.tar.gz
+        asset_name: m3u8-*.tar.gz
+        asset_content_type: application/gzip
+        tag: v${{ github.ref }}
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
