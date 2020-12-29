@@ -20,48 +20,67 @@ import (
 )
 
 type Downloader struct {
-	wg         *sync.WaitGroup
-	pool       chan *Resource
-	Concurrent int
-	Client     *http.Client
-	Dir        string
-	Resources  []*Resource
+	wg           *sync.WaitGroup
+	pool         chan *Resource
+	concurrent   int
+	client       *http.Client
+	dir          string
+	resources    []*Resource
+	showProgress bool
+	finished     chan *Resource
 }
 
 func New(dir string) *Downloader {
-	_ = os.MkdirAll(dir, os.ModePerm)
+	if err := os.MkdirAll(dir, os.ModePerm); nil != err {
+		panic(err)
+	}
+
 	concurrent := runtime.NumCPU()
 
 	return &Downloader{
-		wg:         &sync.WaitGroup{},
-		pool:       make(chan *Resource, concurrent),
-		Concurrent: concurrent,
-		Client:     http.DefaultClient,
-		Dir:        dir,
+		wg:           &sync.WaitGroup{},
+		pool:         make(chan *Resource, concurrent),
+		concurrent:   concurrent,
+		client:       http.DefaultClient,
+		dir:          dir,
+		showProgress: true,
+		finished:     make(chan *Resource, concurrent),
 	}
 }
 
 func (dl *Downloader) AppendResource(url, filename string) *Downloader {
-	dl.Resources = append(dl.Resources, NewResource(url, filename))
+	dl.resources = append(dl.resources, NewResource(url, filename))
 	return dl
 }
 
 func (dl *Downloader) Append(resources ...*Resource) *Downloader {
-	dl.Resources = append(dl.Resources, resources...)
+	dl.resources = append(dl.resources, resources...)
 	return dl
 }
 
+func (dl *Downloader) ShowProgressBar(show bool) *Downloader {
+	dl.showProgress = show
+	return dl
+}
+
+func (dl *Downloader) Finished() chan *Resource {
+	return dl.finished
+}
+
 func (dl *Downloader) StartWithReader(reader func(resourceIndex int, reader io.ReadCloser) io.Reader) {
-	fmt.Println("Downloader started, concurrent is ", dl.Concurrent)
-
-	p := mpb.New(mpb.WithWaitGroup(dl.wg))
-
-	for i, task := range dl.Resources {
+	fmt.Println("Downloader started, concurrent is ", dl.concurrent)
+	var progress *mpb.Progress
+	if dl.showProgress {
+		progress = mpb.New(mpb.WithWaitGroup(dl.wg))
+	}
+	for i, task := range dl.resources {
 		dl.wg.Add(1)
 		task.index = i
-		go dl.download(task, p, reader)
+		go dl.download(task, progress, reader)
 	}
-	p.Wait()
+	if nil != progress {
+		progress.Wait()
+	}
 	dl.wg.Wait()
 }
 
@@ -74,7 +93,7 @@ func (dl *Downloader) Start() {
 func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reader func(resourceIndex int, reader io.ReadCloser) io.Reader) (err error) {
 	defer dl.wg.Done()
 	dl.pool <- resource
-	finalPath := path.Join(dl.Dir, resource.Filename)
+	finalPath := path.Join(dl.dir, resource.Filename)
 	tempPath := finalPath + ".tmp"
 
 	// 创建一个临时文件
@@ -88,30 +107,34 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 	if nil != err {
 		return
 	}
-	resp, err := dl.Client.Do(req)
+	resp, err := dl.client.Do(req)
 	if nil != err {
 		return
 	}
 
 	defer resp.Body.Close()
-
-	// 获取到文件大小
-	fileSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-
+	proxyReader := resp.Body
 	// 创建一个进度条
-	bar := progress.AddBar(fileSize,
-		mpb.PrependDecorators(
-			decor.Name(resource.Filename, decor.WC{W: len(resource.Filename) + 1, C: decor.DidentRight}),
-			decor.CountersKibiByte("% .2f / % .2f"),
-		),
-		mpb.AppendDecorators(
-			decor.EwmaSpeed(decor.UnitKiB, "% .2f", 60),
-		),
-	)
+	if nil != progress {
+		// 获取到文件大小
+		fileSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+		bar := progress.AddBar(fileSize,
+			mpb.BarFillerClearOnComplete(),
+			mpb.PrependDecorators(
+				decor.Name(resource.Filename, decor.WC{W: len(resource.Filename) + 1, C: decor.DidentRight}),
+				decor.CountersKibiByte("% .2f / % .2f"),
+				decor.OnComplete(decor.Name(resource.Filename, decor.WCSyncSpaceR), "  \x1b[32;1;4mdone\x1b[0m"),
+				decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+			),
+			mpb.AppendDecorators(
+				decor.EwmaSpeed(decor.UnitKiB, "% .2f", 60),
+				decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
+			),
+		)
+		proxyReader = bar.ProxyReader(proxyReader)
+	}
 
-	proxyReader := bar.ProxyReader(resp.Body)
 	defer proxyReader.Close()
-
 	realReader := reader(resource.index, proxyReader)
 
 	// 将下载的文件流写到临时文件
@@ -128,6 +151,6 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 	}
 
 	// 完成一个任务
-	<-dl.pool
+	dl.finished <- <-dl.pool
 	return
 }

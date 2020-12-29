@@ -8,6 +8,8 @@ package list
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"m3u8/http"
 	"m3u8/m3u8"
 	"net/url"
@@ -33,6 +35,9 @@ func GetPlayList(urlStr string) (masterList *m3u8.MasterPlaylist, mediaList *m3u
 	if listType == m3u8.MEDIA {
 		// media
 		mediaList = playList.(*m3u8.MediaPlaylist)
+		// mediaList 中存在 nil 的 Segments，需要筛选出有效的 Segments
+		segList := make([]*m3u8.MediaSegment, 0)
+
 		var lastKey *m3u8.Key
 		for _, seg := range mediaList.Segments {
 			if nil != seg {
@@ -44,8 +49,10 @@ func GetPlayList(urlStr string) (masterList *m3u8.MasterPlaylist, mediaList *m3u
 					lastKey = seg.Key
 					lastKey.URI = completeURI(urlStr, lastKey.URI)
 				}
+				segList = append(segList, seg)
 			}
 		}
+		mediaList.Segments = segList
 	} else {
 		// master
 		masterList = playList.(*m3u8.MasterPlaylist)
@@ -54,6 +61,14 @@ func GetPlayList(urlStr string) (masterList *m3u8.MasterPlaylist, mediaList *m3u
 				vnt.URI = completeURI(urlStr, vnt.URI)
 			}
 		}
+
+		// 递归
+		vnt, e := chooseStream(masterList)
+		if nil != e {
+			err = e
+			return
+		}
+		return GetPlayList(vnt.URI)
 	}
 	return
 }
@@ -73,4 +88,26 @@ func completeURI(siteURI, resourceURI string) string {
 		}
 	}
 	return resourceURI
+}
+
+func chooseStream(mediaList *m3u8.MasterPlaylist) (vnt *m3u8.Variant, err error) {
+	var sb strings.Builder
+	sb.WriteString("Please choose program: \n")
+	for i, vnt := range mediaList.Variants {
+		sb.WriteString(fmt.Sprintf("\t%d. BandWidth: %d, Resolution: %s\n", i+1, vnt.Bandwidth, vnt.Resolution))
+	}
+	sb.WriteString("Input the No. you want: ")
+	var index int
+	fmt.Print(sb.String())
+	_, err = fmt.Scan(&index)
+	if nil != err {
+		return
+	}
+	if index <= 0 || index > len(mediaList.Variants) {
+		err = errors.New("input index out of variants range")
+		return
+	}
+	vnt = mediaList.Variants[index-1]
+	fmt.Println(fmt.Sprintf("You choice is: BandWidth: %d, Resolution: %s", vnt.Bandwidth, vnt.Resolution))
+	return
 }
