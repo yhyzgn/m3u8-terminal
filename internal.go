@@ -126,7 +126,7 @@ func download(urlStr, tsDir, mediaFile string) (tsNames []string) {
 			if nil != seg.Key && seg.Key.URI != "" && nil == keyMap[seg.Key.Method+"-"+seg.Key.URI] {
 				keyMap[seg.Key.Method+"-"+seg.Key.URI], _ = http.Get(seg.Key.URI)
 			}
-			name := fmt.Sprintf("slice_%.6d.ts", i+1)
+			name := fmt.Sprintf("slice_%06d.ts", i+1)
 			tsNames = append(tsNames, path.Join(tsDir, name))
 			downloader.AppendResource(seg.URI, name)
 		}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/yhyzgn/golus"
 	"io"
 	"net/http"
 	"os"
@@ -119,16 +120,15 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 		// 获取到文件大小
 		fileSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
 		bar := progress.AddBar(fileSize,
+			mpb.BarStyle("[=>_]<+"),
 			mpb.BarFillerClearOnComplete(),
 			mpb.PrependDecorators(
 				decor.Name(resource.Filename, decor.WC{W: len(resource.Filename) + 1, C: decor.DidentRight}),
-				decor.CountersKibiByte("% .2f / % .2f"),
-				decor.OnComplete(decor.Name(resource.Filename, decor.WCSyncSpaceR), "  \x1b[32;1;4mdone\x1b[0m"),
+				decor.CountersKibiByte("% .2f / % .2f", decor.WC{W: 32}),
 				decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
 			),
 			mpb.AppendDecorators(
-				decor.EwmaSpeed(decor.UnitKiB, "% .2f", 60),
-				decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
+				decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  "+golus.NewStylus().SetFontColor(golus.FontGreen).SetFontStyle(golus.StyleBold).Apply("Download Finished")),
 			),
 		)
 		proxyReader = bar.ProxyReader(proxyReader)
