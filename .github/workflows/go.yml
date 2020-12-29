@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Current date
+      id: date
+      run: echo "name=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+        
     - name: Set up Go 1.15
       uses: actions/setup-go@v2
       with:
@@ -46,21 +50,21 @@ jobs:
         mkdir m3u8-linux-amd64
         cp m3u8.linux m3u8-linux-amd64/m3u8
         cp settings.json m3u8-linux-amd64/settings.json
-        tar -czvf m3u8-linux-amd64-${{ github.ref }}.tar.gz m3u8-linux-amd64
+        tar -czvf m3u8-linux-amd64-${{ steps.date.outputs.date }}.tar.gz m3u8-linux-amd64
         
     - name: Gzip mac
       run: |
         mkdir m3u8-mac-amd64
         cp m3u8.mac m3u8-mac-amd64/m3u8
         cp settings.json m3u8-mac-amd64/settings.json
-        tar -czvf m3u8-mac-amd64-${{ github.ref }}.tar.gz m3u8-mac-amd64
+        tar -czvf m3u8-mac-amd64-${{ steps.date.outputs.date }}.tar.gz m3u8-mac-amd64
         
     - name: Gzip windows
       run: |
         mkdir m3u8-windows-amd64
         cp m3u8.exe m3u8-windows-amd64/m3u8.exe
         cp settings.json m3u8-windows-amd64/settings.json
-        tar -czvf m3u8-windows-amd64-${{ github.ref }}.tar.gz m3u8-windows-amd64
+        tar -czvf m3u8-windows-amd64-${{ steps.date.outputs.date }}.tar.gz m3u8-windows-amd64
         
     - name: Create release
       id: createRelease
@@ -68,8 +72,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ github.ref }}
-        release_name: v${{ github.ref }}
+        tag_name: v${{ steps.date.outputs.date }}
+        release_name: v${{ steps.date.outputs.date }}
         draft: false
         prerelease: false
     
@@ -83,7 +87,7 @@ jobs:
         file: m3u8-*.tar.gz
         asset_name: m3u8-*.tar.gz
         asset_content_type: application/gzip
-        tag: v${{ github.ref }}
+        tag: v${{ steps.date.outputs.date }}
         
         
         
