@@ -14,6 +14,7 @@ import (
 	"github.com/yhyzgn/golus"
 	"io"
 	"io/ioutil"
+	"log"
 	"m3u8/crypt"
 	"m3u8/dl"
 	"m3u8/file"
@@ -34,9 +35,8 @@ const (
 
 // 检查 ffmpeg
 func checkFfmpeg() {
-	// 先运行一波，优先使用环境变量中的配置
-	// 如果无法识别则重新下载到指定目录
-	if err := exec.Command(ffmpeg).Run(); nil != err && strings.Contains(err.Error(), "not found") {
+	// 预先检查程序是否存在
+	if _, err := exec.LookPath(ffmpeg); nil != err {
 		// 下载 ffmpeg
 		gs := runtime.GOOS
 		switch gs {
@@ -106,6 +106,7 @@ func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 		mpb.WithRefreshRate(time.Second),
 	)
 	bar := progress.AddBar(int64(len(mediaList.Segments)),
+		mpb.BarStyle("[=>_]<+"),
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(
 			decor.Name("Download -- "),
@@ -127,7 +128,7 @@ func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 				keyMap[seg.Key.Method+"-"+seg.Key.URI], _ = http.Get(seg.Key.URI)
 			}
 			name := fmt.Sprintf("slice_%06d.ts", i+1)
-			tsNames = append(tsNames, "file " + name)
+			tsNames = append(tsNames, "file "+name)
 			downloader.Append(dl.NewResource(seg.URI, name, false))
 		}
 	}
@@ -163,16 +164,33 @@ func merge(tsDir, mediaPath, mediaFile string, tsFile string) {
 	cmdArgs := []string{"-y", "-f", "concat", "-i", tsFile, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
 
 	cmd := exec.Command(ffmpeg, cmdArgs...)
-	cmd.Stdout = os.Stdout
 
-	if err := cmd.Run(); nil == err {
+	var stdoutBuf, stderrBuf bytes.Buffer
+	stdoutIn, _ := cmd.StdoutPipe()
+	stderrIn, _ := cmd.StderrPipe()
+	var errStdout, errStderr error
+	stdout := io.MultiWriter(os.Stdout, &stdoutBuf)
+	stderr := io.MultiWriter(os.Stderr, &stderrBuf)
+	err := cmd.Start()
+	if err != nil {
+		log.Fatalf("cmd.Start() failed with '%s'\n", err)
+	}
+	go func() {
+		_, errStdout = io.Copy(stdout, stdoutIn)
+	}()
+	go func() {
+		_, errStderr = io.Copy(stderr, stderrIn)
+	}()
+	if err = cmd.Wait(); err == nil {
 		// 合并完成，删除ts目录
 		err = os.RemoveAll(tsDir)
 		if nil != err {
 			fmt.Println(err)
 		} else {
-			fmt.Println(fmt.Sprintf("%s Media %s", colorful(mediaFile), colorful("Merge Finished")))
+			fmt.Println(fmt.Sprintf(" \nMedia '%s' Merge Finished", colorful(mediaFile)))
 		}
+	} else {
+		log.Fatalf("cmd.Run() failed with %s\n", err)
 	}
 }
 
