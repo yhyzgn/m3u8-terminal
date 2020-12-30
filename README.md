@@ -1,4 +1,4 @@
-# # `m3u8`下载器
+# `m3u8`下载器
 ![release](https://img.shields.io/github/v/release/yhyzgn/m3u8?color=brightgreen)
 
 
@@ -23,15 +23,17 @@
 
 ## 配置文件
 
+> 当前目录下的`settings.json`文件
+
 ```json
 {
-  // 媒体保存目录
+  "//": "媒体保存目录",
   "saveDir": "./Download",
-  // 临时分片ts文件保存目录前缀，临时目录命名：${tsTempDirPrefix} + ${MD5(url)}
+  "//": "临时分片ts文件保存目录前缀，临时目录命名：${tsTempDirPrefix} + ${MD5(url)}",
   "tsTempDirPrefix": "ts_",
-  // 默认媒体格式
+  "//": "默认媒体格式",
   "extension": "mp4",
-  // 各平台 ffmpeg 下载源，直接下载可执行程序
+  "//": "各平台 ffmpeg 下载源，直接下载可执行程序",
   "ffmpeg": {
     "windows": "https://gitee.com/yhyzgn/ffmpeg/attach_files/566856/download/ffmpeg.exe",
     "mac": "https://gitee.com/yhyzgn/ffmpeg/attach_files/566856/download/ffmpeg.mac",
