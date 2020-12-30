@@ -16,10 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Current date
+    - name: Built env
       id: date
-      run: echo "date=$(TZ=UTC-8 date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
-        
+      run: |
+        echo "version=v$BUILD_NUMBER" >> $GITHUB_ENV
+        echo "builtDate=$(TZ=UTC-8 date '+%Y-%m-%d')" >> $GITHUB_ENV
+
     - name: Set up Go 1.15
       uses: actions/setup-go@v2
       with:
@@ -37,34 +39,34 @@ jobs:
         fi
 
     - name: Build linux
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o m3u8.linux
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o m3u8.linux -ldflags "-s -w -extldflags -static -X m3u8/built.Version=${{ env.version }} -X m3u8/built.BuildDate=${{ env.builtDate }}"
 
     - name: Build mac
-      run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -v -o m3u8.mac
+      run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -v -o m3u8.mac -ldflags "-s -w -extldflags -static -X m3u8/built.Version=${{ env.version }} -X m3u8/built.BuildDate=${{ env.builtDate }}"
 
     - name: Build windows
-      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -v -o m3u8.exe
+      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -v -o m3u8.exe -ldflags "-s -w -extldflags -static -X m3u8/built.Version=${{ env.version }} -X m3u8/built.BuildDate=${{ env.builtDate }}"
    
     - name: Gzip linux
       run: |
         mkdir m3u8-linux-amd64
         cp m3u8.linux m3u8-linux-amd64/m3u8
         cp settings.json m3u8-linux-amd64/settings.json
-        tar -czvf m3u8-linux-amd64-${{ env.date }}.tar.gz m3u8-linux-amd64
+        tar -czvf m3u8-linux-amd64-${{ env.version }}.tar.gz m3u8-linux-amd64
         
     - name: Gzip mac
       run: |
         mkdir m3u8-mac-amd64
         cp m3u8.mac m3u8-mac-amd64/m3u8
         cp settings.json m3u8-mac-amd64/settings.json
-        tar -czvf m3u8-mac-amd64-${{ env.date }}.tar.gz m3u8-mac-amd64
+        tar -czvf m3u8-mac-amd64-${{ env.version }}.tar.gz m3u8-mac-amd64
         
     - name: Gzip windows
       run: |
         mkdir m3u8-windows-amd64
         cp m3u8.exe m3u8-windows-amd64/m3u8.exe
         cp settings.json m3u8-windows-amd64/settings.json
-        tar -czvf m3u8-windows-amd64-${{ env.date }}.tar.gz m3u8-windows-amd64
+        tar -czvf m3u8-windows-amd64-${{ env.version }}.tar.gz m3u8-windows-amd64
         
     - name: Create release
       id: createRelease
@@ -72,8 +74,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ env.date }}
-        release_name: v${{ env.date }}
+        tag_name: ${{ env.version }}
+        release_name: ${{ env.version }}
         draft: true
         prerelease: false
     
@@ -83,8 +85,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ./m3u8-linux-amd64-${{ env.date }}.tar.gz
-        asset_name: m3u8-linux-amd64-${{ env.date }}.tar.gz
+        asset_path: ./m3u8-linux-amd64-${{ env.version }}.tar.gz
+        asset_name: m3u8-linux-amd64-${{ env.version }}.tar.gz
         asset_content_type: application/gzip
     
     - name: Upload release asset of mac
@@ -93,8 +95,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ./m3u8-mac-amd64-${{ env.date }}.tar.gz
-        asset_name: m3u8-mac-amd64-${{ env.date }}.tar.gz
+        asset_path: ./m3u8-mac-amd64-${{ env.version }}.tar.gz
+        asset_name: m3u8-mac-amd64-${{ env.version }}.tar.gz
         asset_content_type: application/gzip
     
     - name: Upload release asset of windows
@@ -103,8 +105,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ./m3u8-windows-amd64-${{ env.date }}.tar.gz
-        asset_name: m3u8-windows-amd64-${{ env.date }}.tar.gz
+        asset_path: ./m3u8-windows-amd64-${{ env.version }}.tar.gz
+        asset_name: m3u8-windows-amd64-${{ env.version }}.tar.gz
         asset_content_type: application/gzip
         
     - uses: eregon/publish-release@v1

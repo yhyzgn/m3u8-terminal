@@ -1,6 +1,7 @@
 {
   "saveDir": "./Download",
   "tsTempDirPrefix": "ts_",
+  "extension": "mp4",
   "ffmpeg": {
     "windows": "https://gitee.com/yhyzgn/ffmpeg/attach_files/566856/download/ffmpeg.exe",
     "mac": "https://gitee.com/yhyzgn/ffmpeg/attach_files/566856/download/ffmpeg.mac",

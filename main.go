@@ -15,6 +15,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"m3u8/built"
+	"m3u8/crypt"
 	"m3u8/settings"
 	"path"
 )
@@ -32,6 +34,8 @@ var (
 )
 
 func init() {
+	fmt.Println(built.FullName)
+
 	bs, err := ioutil.ReadFile("./settings.json")
 	if nil != err {
 		panic(err)
@@ -52,11 +56,15 @@ func main() {
 	if "" == urlStr {
 		panic("URL of m3u8 resource can not be empty.")
 	}
+
+	md5Filename := crypt.MD5String(urlStr)
 	if "" == filename {
-		panic("Name of media can not be empty.")
+		filename = md5Filename
 	}
+
 	if "" == fileExt {
-		panic("Extension of media can not be empty.")
+		// 默认扩展
+		fileExt = conf.Extension
 	}
 	if !supportedMedia[fileExt] {
 		panic("Unsupported extension of media: " + fileExt)
@@ -66,7 +74,7 @@ func main() {
 	checkFfmpeg()
 
 	saveDir := conf.SaveDir
-	tsDir := path.Join(saveDir, conf.TsTempDirPrefix+filename)
+	tsDir := path.Join(saveDir, conf.TsTempDirPrefix+md5Filename)
 	mediaFile := filename + "." + fileExt
 
 	mediaPath := path.Join(saveDir, mediaFile)
