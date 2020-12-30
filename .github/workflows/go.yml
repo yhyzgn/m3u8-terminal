@@ -19,7 +19,10 @@ jobs:
     - name: Built env
       id: date
       run: |
-        echo $GITHUB_RUN_NUMBER
+        echo "version=v$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
+        
+    - name: Test
+      run: echo ${{ env.version }}
         
         
         
