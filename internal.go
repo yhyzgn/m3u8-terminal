@@ -108,8 +108,8 @@ func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(
 			decor.Name("Download -- "),
-			decor.Name(colorful(mediaFile), decor.WC{W: utf8.RuneCountInString(mediaFile) + 1, C: decor.DidentRight}),
-			decor.CountersNoUnit("%06d / %06d", decor.WCSyncWidth),
+			decor.Name(colorful(mediaFile), decor.WC{W: utf8.RuneCountInString(mediaFile), C: decor.DidentRight}),
+			decor.CountersNoUnit(" %06d / %06d", decor.WCSyncWidth),
 		),
 		mpb.AppendDecorators(
 			decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), colorful("Download Finished")),

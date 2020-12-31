@@ -8,6 +8,8 @@ package dl
 
 import (
 	"fmt"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 	"testing"
 )
 
@@ -40,23 +42,23 @@ import (
 //}
 
 func TestDownloader_Start(t *testing.T) {
-	downloader := New("./tst")
-	//p := mpb.New(mpb.WithWidth(64))
+	downloader := New("./testDir")
+	p := mpb.New(mpb.WithWidth(64))
 
 	total := 3
-	//name := "测试："
-	//bar := p.AddBar(int64(total),
-	//	// override DefaultBarStyle, which is "[=>-]<+"
-	//	// mpb.BarStyle("╢▌▌░╟"),
-	//	mpb.BarFillerClearOnComplete(),
-	//	mpb.PrependDecorators(
-	//		decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
-	//		decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
-	//	),
-	//	mpb.AppendDecorators(
-	//		decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  \x1b[32;1;4mdone\x1b[0m"),
-	//	),
-	//)
+	name := "测试："
+	bar := p.AddBar(int64(total),
+		// override DefaultBarStyle, which is "[=>-]<+"
+		// mpb.BarStyle("╢▌▌░╟"),
+		mpb.BarFillerClearOnComplete(),
+		mpb.PrependDecorators(
+			decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
+			decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
+		),
+		mpb.AppendDecorators(
+			decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  \x1b[32;1;4mdone\x1b[0m"),
+		),
+	)
 
 	for i := 0; i < total; i++ {
 		downloader.AppendResource("https://ime.sogoucdn.com/7ef36e63db762cb1ec1bd8575bda2c6c/5fea87fe/dl/index/1603177583/sogou_pinyin_98a.exe", fmt.Sprintf("搜狗_%06d.exe", i+1))
@@ -64,12 +66,12 @@ func TestDownloader_Start(t *testing.T) {
 
 	downloader.Start()
 
-	//go func() {
-	//	for {
-	//		<-downloader.Finished()
-	//		bar.Increment()
-	//	}
-	//}()
-	//go downloader.Start()
-	//p.Wait()
+	go func() {
+		for {
+			<-downloader.Finished()
+			bar.Increment()
+		}
+	}()
+	go downloader.Start()
+	p.Wait()
 }
