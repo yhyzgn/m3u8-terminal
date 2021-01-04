@@ -24,6 +24,7 @@ import (
 var (
 	conf           settings.Config
 	supportedMedia = map[string]bool{
+		"ts":  true,
 		"mp4": true,
 		"mkv": true,
 		"avi": true,
@@ -62,6 +63,9 @@ func main() {
 		filename = md5Filename
 	}
 
+	if !conf.Convert {
+		fileExt = "ts"
+	}
 	if "" == fileExt {
 		// 默认扩展
 		fileExt = conf.Extension
@@ -71,7 +75,9 @@ func main() {
 	}
 
 	// 检查 ffmpeg
-	checkFfmpeg()
+	if conf.Convert {
+		checkFfmpeg()
+	}
 
 	saveDir := conf.SaveDir
 	tsDir := path.Join(saveDir, conf.TsTempDirPrefix+md5Filename)
@@ -85,11 +91,17 @@ func main() {
 	}
 
 	// 下载任务，返回已下载成功的切片列表
-	tsFile := download(urlStr, tsDir, mediaFile)
+	tsNames, tsFile := download(urlStr, tsDir, mediaFile)
 
 	// 下载完成，开始合并
 	fmt.Println("TS files download finished, now merging...")
 
-	// 合并切片，并转换视频格式
-	merge(tsDir, mediaPath, mediaFile, tsFile)
+	// 合并切片
+	if conf.Convert {
+		// 并转换视频格式
+		mergeByFfmpeg(tsDir, mediaPath, mediaFile, tsFile)
+	} else {
+		// 仅合并
+		merge(tsDir, mediaPath, mediaFile, tsNames)
+	}
 }

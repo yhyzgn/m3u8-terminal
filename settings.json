@@ -1,6 +1,7 @@
 {
   "saveDir": "./Download",
   "tsTempDirPrefix": "ts_",
+  "convert": true,
   "extension": "mp4",
   "ffmpeg": {
     "windows": "https://gitee.com/yhyzgn/ffmpeg/attach_files/566856/download/ffmpeg.exe",

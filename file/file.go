@@ -93,6 +93,7 @@ func Read(filename string) (data []byte, err error) {
 }
 
 func writeBytes(file *os.File, data []byte) error {
+	defer file.Close()
 	_, err := file.Write(data)
 	if err != nil {
 		return err
@@ -101,6 +102,7 @@ func writeBytes(file *os.File, data []byte) error {
 }
 
 func writeString(file *os.File, data string) error {
+	defer file.Close()
 	_, err := file.WriteString(data)
 	if err != nil {
 		return err

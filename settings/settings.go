@@ -9,6 +9,7 @@ package settings
 type Config struct {
 	SaveDir         string `json:"saveDir"`
 	TsTempDirPrefix string `json:"tsTempDirPrefix"`
+	Convert         bool   `json:"convert"`
 	Extension       string `json:"extension"`
 	Ffmpeg          struct {
 		Windows string `json:"windows"`

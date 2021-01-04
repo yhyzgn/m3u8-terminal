@@ -31,6 +31,8 @@
   "saveDir": "./Download",
   "//": "临时分片ts文件保存目录前缀，临时目录命名：${tsTempDirPrefix} + ${MD5(url)}",
   "tsTempDirPrefix": "ts_",
+  "//": "是否转换格式，使用到ffmpeg环境，不转换则不需要ffmpeg环境",
+  "convert": true,
   "//": "默认媒体格式",
   "extension": "mp4",
   "//": "各平台 ffmpeg 下载源，直接下载可执行程序",

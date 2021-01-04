@@ -90,7 +90,7 @@ func shouldDownload(mediaPath string) (should bool) {
 }
 
 // 下载 m3u8 资源
-func download(urlStr, tsDir, mediaFile string) (tsFile string) {
+func download(urlStr, tsDir, mediaFile string) (tsNames []string, tsFile string) {
 	_, mediaList, err := list.GetPlayList(urlStr)
 	if nil != err {
 		fmt.Println(err)
@@ -119,7 +119,7 @@ func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 	downloader := dl.New(tsDir).ShowProgressBar(false)
 
 	keyMap := make(map[string][]byte)
-	tsNames := make([]string, 0)
+	tsNames = make([]string, 0)
 	for i, seg := range mediaList.Segments {
 		if nil != seg {
 			if nil != seg.Key && seg.Key.URI != "" && nil == keyMap[seg.Key.Method+"-"+seg.Key.URI] {
@@ -157,7 +157,7 @@ func download(urlStr, tsDir, mediaFile string) (tsFile string) {
 }
 
 // 合并切片，并转换视频格式
-func merge(tsDir, mediaPath, mediaFile string, tsFile string) {
+func mergeByFfmpeg(tsDir, mediaPath, mediaFile, tsFile string) {
 	// ffmpeg -i "xxx.txt" -acodec copy -vcodec copy -absf aac_adtstoasc out.mp4
 	cmdArgs := []string{"-y", "-f", "concat", "-i", tsFile, "-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", mediaPath}
 
@@ -171,6 +171,41 @@ func merge(tsDir, mediaPath, mediaFile string, tsFile string) {
 		} else {
 			fmt.Println(fmt.Sprintf("Media '%s' Merge Finished", colorful(mediaFile)))
 		}
+	} else {
+		fmt.Println(err)
+	}
+}
+
+// 直接合并成ts文件
+func merge(tsDir, mediaPath, mediaFile string, tsNames []string) {
+	if nil == tsNames {
+		return
+	}
+
+	var err error
+	for _, name := range tsNames {
+		tsFile := path.Join(tsDir, name[5:])
+		bs, e := file.Read(tsFile)
+		if nil != e {
+			err = e
+			break
+		}
+		e = file.Append(mediaPath, bs)
+		if nil != e {
+			err = e
+			break
+		}
+	}
+	if nil == err {
+		// 合并完成，删除ts目录
+		err := os.RemoveAll(tsDir)
+		if nil != err {
+			fmt.Println(err)
+		} else {
+			fmt.Println(fmt.Sprintf("Media '%s' Merge Finished", colorful(mediaFile)))
+		}
+	} else {
+		fmt.Println(err)
 	}
 }
 
