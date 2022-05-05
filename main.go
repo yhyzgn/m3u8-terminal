@@ -29,9 +29,9 @@ var (
 		"mkv": true,
 		"avi": true,
 	}
-	url  = flag.String("url", "", "URL of m3u8 resource")
-	name = flag.String("name", "", "Name of media")
-	ext  = flag.String("ext", "", "Extension of media")
+	url  = flag.String("u", "", "URL of m3u8 resource")
+	name = flag.String("o", "", "Name of media")
+	ext  = flag.String("x", "", "Extension of media")
 )
 
 func init() {

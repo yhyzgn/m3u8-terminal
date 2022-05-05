@@ -2,14 +2,13 @@
 // e-mail : yhyzgn@gmail.com
 // time   : 2020-12-29 9:26
 // version: 1.0.0
-// desc   : 
+// desc   :
 
 package dl
 
 import (
 	"fmt"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v7/decor"
 	"testing"
 )
 

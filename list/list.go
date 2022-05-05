@@ -2,7 +2,7 @@
 // e-mail : yhyzgn@gmail.com
 // time   : 2020-12-28 17:51
 // version: 1.0.0
-// desc   : 
+// desc   :
 
 package list
 
@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/grafov/m3u8"
 	"github.com/yhyzgn/golus"
 	"m3u8/http"
-	"m3u8/m3u8"
 	"net/url"
 	"strings"
 )
@@ -99,7 +99,7 @@ func chooseStream(mediaList *m3u8.MasterPlaylist) (vnt *m3u8.Variant, err error)
 	}
 	sb.WriteString("Select the number you wanna: ")
 	var index int
-	fmt.Print(golus.NewStylus().SetFontColor(golus.FontBlueGreen).Apply(sb.String()))
+	fmt.Print(golus.New().FontColor(golus.FontBlue).Apply(sb.String()))
 	_, err = fmt.Scan(&index)
 	if nil != err {
 		return

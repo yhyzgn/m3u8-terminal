@@ -2,15 +2,15 @@
 // e-mail : yhyzgn@gmail.com
 // time   : 2020-12-29 16:14
 // version: 1.0.0
-// desc   : 
+// desc   :
 
 package main
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	"github.com/yhyzgn/golus"
 	"io"
 	"io/ioutil"
@@ -66,7 +66,7 @@ func ffmpegDownload(url, name string) {
 func shouldDownload(mediaPath string) (should bool) {
 	if file.Exists(mediaPath) {
 		var ch string
-		fmt.Print(golus.NewStylus().SetFontColor(golus.FontYellow).Apply(fmt.Sprintf("Media file '%s' already exists, Overwrite? (y/n) ", mediaPath)))
+		fmt.Print(golus.New().FontColor(golus.FontYellow).Apply(fmt.Sprintf("Media file '%s' already exists, Overwrite? (y/n) ", mediaPath)))
 		_, err := fmt.Scan(&ch)
 		if nil != err {
 			ch = "n"
@@ -103,8 +103,8 @@ func download(urlStr, tsDir, mediaFile string) (tsNames []string, tsFile string)
 	progress := mpb.New(
 		mpb.WithWidth(160),
 	)
-	bar := progress.AddBar(int64(len(mediaList.Segments)),
-		mpb.BarStyle("[=>_]<+"),
+	bar := progress.New(int64(len(mediaList.Segments)),
+		mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding("_").Rbound("]"),
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(
 			decor.Name("Download -- "),
@@ -211,5 +211,5 @@ func merge(tsDir, mediaPath, mediaFile string, tsNames []string) {
 
 // 彩色控制台输出
 func colorful(msg string) string {
-	return golus.NewStylus().SetFontColor(golus.FontGreen).SetFontStyle(golus.StyleBold, golus.StyleUnderLine).Apply(msg)
+	return golus.New().FontColor(golus.FontGreen).FontStyle(golus.StyleBold, golus.StyleUnderLine).Apply(msg)
 }

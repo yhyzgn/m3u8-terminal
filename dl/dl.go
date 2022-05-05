@@ -2,14 +2,14 @@
 // e-mail : yhyzgn@gmail.com
 // time   : 2020-12-28 16:44
 // version: 1.0.0
-// desc   : 
+// desc   :
 
 package dl
 
 import (
 	"fmt"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	"github.com/yhyzgn/golus"
 	"io"
 	"m3u8/file"
@@ -128,8 +128,8 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 	if nil != progress {
 		// 获取到文件大小
 		fileSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-		bar := progress.AddBar(fileSize,
-			mpb.BarStyle("[=>_]<+"),
+		bar := progress.New(fileSize,
+			mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding("_").Rbound("]"),
 			mpb.BarFillerClearOnComplete(),
 			mpb.PrependDecorators(
 				decor.Name(resource.Filename, decor.WC{W: len(resource.Filename) + 1, C: decor.DidentRight}),
@@ -137,7 +137,7 @@ func (dl *Downloader) download(resource *Resource, progress *mpb.Progress, reade
 				decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
 			),
 			mpb.AppendDecorators(
-				decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  "+golus.NewStylus().SetFontColor(golus.FontGreen).SetFontStyle(golus.StyleBold).Apply("Download Finished")),
+				decor.OnComplete(decor.NewPercentage("%.2f", decor.WC{W: 7}), "  "+golus.New().FontColor(golus.FontGreen).FontStyle(golus.StyleBold).Apply("Download Finished")),
 			),
 		)
 		proxyReader = bar.ProxyReader(proxyReader)
