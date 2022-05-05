@@ -51,14 +51,14 @@
 > 命令行模式
 
 ```shell
-./m3u8 -url "https://src.com/index.m3u8" -name "测试" -ext "mp4"
+./m3u8 -u "https://src.com/index.m3u8" -o "测试" -x "mp4"
 ```
 
 参数说明
 
 | 参数名 |  可空   |                  说明                  |
-| :----: | :-----: | :------------------------------------: |
-| `url`  | `false` |               `m3u8`链接               |
-| `name` | `true`  |     媒体文件名，空时使用`MD5(url)`     |
-| `ext`  | `true`  | 媒体类型，空时使用`settings.extension` |
+|:---:| :-----: | :------------------------------------: |
+| `u` | `false` |               `m3u8`链接               |
+| `o` | `true`  |     媒体文件名，空时使用`MD5(url)`     |
+| `x` | `true`  | 媒体类型，空时使用`settings.extension` |
 
